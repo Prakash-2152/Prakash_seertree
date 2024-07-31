@@ -1,0 +1,183 @@
+CREATE DEFINER=`seertree_HR`@`%` PROCEDURE `seertree_HR`.`kbr_equity_split_update`(IN `p_company_id` INT, IN `p_inst_id` INT, IN `p_s_no` INT, IN `p_split_ratio` DOUBLE, IN `p_split_date` DATE, IN `p_comments` VARCHAR(2000), IN `l_date` DATE, IN `l_name` VARCHAR(2000), OUT `Message` VARCHAR(2000), OUT `p_status` VARCHAR(30))
+BEGIN
+    DECLARE
+        l_purchase_price INT; DECLARE l_inst_id INT; DECLARE l_curr VARCHAR(40); DECLARE l_equ_buy_acc VARCHAR(100); DECLARE l_equ_sale_acc VARCHAR(100); DECLARE l_equ_div_acc VARCHAR(100); DECLARE l_equ_pr_loss_acc VARCHAR(100); DECLARE l_equ_charge_acc VARCHAR(100); DECLARE p_current_balance INT; DECLARE p_trx_id INT; DECLARE EXIT
+    HANDLER FOR SQLEXCEPTION
+BEGIN
+    SET
+        Message = 'Unsuccessfull';
+    SET
+        p_status = 'Failed';
+END;
+/*inst master*/
+SELECT
+    '1';
+SELECT
+    currency_code
+INTO l_curr
+FROM
+    KBR_INST_MASTER
+WHERE
+    inst_id = p_inst_id;
+SELECT
+    l_curr;
+    /*equity buy*/
+SELECT
+    equity_buy_account,
+    equity_sale_account,
+    equity_dividend_account,
+    equity_profit_loss,
+    brokerage_charges_account
+INTO l_equ_buy_acc, l_equ_sale_acc, l_equ_div_acc, l_equ_pr_loss_acc, l_equ_charge_acc
+FROM
+    KBR_EQUITY_BUY
+WHERE
+    inst_id = p_inst_id AND company_id = p_company_id AND equity_buy_account IS NOT NULL AND creation_date =(
+    SELECT
+        MAX(creation_date) AS CREATION_DATE
+    FROM
+        KBR_EQUITY_BUY
+    WHERE
+        inst_id = p_inst_id AND company_id = p_company_id AND equity_buy_account IS NOT NULL
+)
+LIMIT 1;
+SELECT
+    CONCAT_WS(
+        ',',
+        l_equ_buy_acc,
+        l_equ_sale_acc,
+        l_equ_div_acc,
+        l_equ_pr_loss_acc,
+        l_equ_charge_acc
+    );
+    /* update  creation date in equity split */
+UPDATE
+    KBR_EQUITY_SPLIT
+SET
+    creation_date = now(),-- l_date,
+    comments = p_comments
+WHERE
+    company_id = p_company_id AND inst_id = p_inst_id AND s_no = p_s_no;
+COMMIT
+    ;
+    /*equity balance*/
+BEGIN
+    SELECT
+        average_price,
+        inst_id
+    INTO l_purchase_price, l_inst_id
+FROM
+    KBR_EQUITY_BAL
+WHERE
+    inst_id = p_inst_id AND company_id = p_company_id;
+END;
+SELECT
+    '4';
+UPDATE
+    KBR_EQUITY_BUY
+SET
+STATUS
+    = 'Split'
+WHERE
+    inst_id = p_inst_id AND company_id = p_company_id AND(
+    STATUS
+        = 'Buy Active' OR
+    STATUS
+        = 'Sale Active'
+);
+COMMIT
+    ;
+SELECT
+    '5';
+    /* Current balance auto populate*/
+SELECT
+    units
+INTO p_current_balance
+FROM
+    KBR_EQUITY_BAL
+WHERE
+    inst_id = p_inst_id AND company_id = p_company_id;
+SELECT
+    p_current_balance;
+INSERT INTO KBR_EQUITY_BUY(
+    inst_id,
+    company_id,
+    units,
+    purchase_price,
+    amount,
+    purchase_date,
+STATUS
+    ,
+    last_update_date,
+    last_updated_by,
+    creation_date,
+    created_by,
+    last_update_login,
+    equ_dev,
+    folio_number,
+    currency,
+    bank_account_id,
+    equity_buy_account,
+    equity_sale_account,
+    equity_dividend_account,
+    equity_profit_loss,
+    brokerage_charges_account,
+    comments
+)
+VALUES(
+    p_inst_id,
+    p_company_id,
+    (
+        p_current_balance * p_split_ratio
+    ),
+    (
+        l_purchase_price / p_split_ratio
+    ),
+    (
+        p_current_balance * p_split_ratio
+    ) *(
+        l_purchase_price / p_split_ratio
+    ),
+    p_split_date,
+    'Buy Active',
+    l_date,
+    l_name,
+    l_date,
+    l_name,
+    l_name,
+    'Split',
+    'N/A',
+    l_curr,
+    NULL,
+    l_equ_buy_acc,
+    l_equ_sale_acc,
+    l_equ_div_acc,
+    l_equ_pr_loss_acc,
+    l_equ_charge_acc,
+    p_comments
+);
+COMMIT
+    ;
+SET
+    Message = 'equity Split updated successfully';
+SET
+    p_status = 'Ok';
+SELECT
+    TRX_ID
+INTO p_trx_id
+FROM
+    KBR_EQUITY_BUY
+WHERE
+    trx_id =(
+SELECT
+    LAST_INSERT_ID());
+CALL
+    kbr_equitybuy_update(
+        l_inst_id,
+        p_trx_id,
+        @Message,
+        @p_status
+    );
+COMMIT
+    ;
+END
