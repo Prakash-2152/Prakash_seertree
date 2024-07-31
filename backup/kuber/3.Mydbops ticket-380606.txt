@@ -1,0 +1,48 @@
+SELECT 
+  `KBM`.`BANK_ACCOUNT_ID` AS `BANK_ACCOUNT_ID`, 
+  `KBM`.`BANK_CODE` AS `BANK_CODE`, 
+  `KBM`.`BANK_NAME` AS `BANK_NAME`, 
+  `KBM`.`BRANCH_NAME` AS `BRANCH_NAME`, 
+  `KBM`.`ACCOUNT_NAME` AS `ACCOUNT_NAME`, 
+  `KBM`.`ACCOUNT_NUMBER` AS `ACCOUNT_NUMBER`, 
+  `KBM`.`ACCOUNT_CURRENCY` AS `ACCOUNT_CURRENCY`, 
+  `KBM`.`STATUS` AS `stats`, 
+  `KBM`.`file_name` AS `fe_name`, 
+  `KBM`.`file_type` AS `fe_type`, 
+  `KBM`.`file_size` AS `fe_size`, 
+  `KBM`.`mime_type` AS `me_type`, 
+  `KBM`.`character_set` AS `cr_set`, 
+  `KBM`.`account_ccid` AS `at_ccid`, 
+  `KBM`.`oracle_bank_account` AS `oe_bank_account`, 
+  `KTC`.`COMPANY_ID` AS `p_company_name`, 
+  (
+    SELECT 
+      CASE `KBM`.`END_DATE` WHEN ? THEN ? ELSE `KBM`.`END_DATE` END AS `END_DATE`
+  ) AS `END_DATE`, 
+  `KBM`.`PURPOSE_OF_THE_BANK_ACCOUNT` AS `PURPOSE_OF_THE_BANK_ACCOUNT`, 
+  `KBM`.`SIX_SIGMA_CODE` AS `sx_sigma_code`, 
+  `KBM`.`bank_charges_account` AS `bank_charges_account`, 
+  `KBM`.`COMMENTS` AS `COMMENTS`, 
+  `KBM`.`BRANCH_ADDRESS` AS `BRANCH_ADDRESS`, 
+  `KBM`.`SWIFT_CODE` AS `SWIFT_CODE`, 
+  `KBM`.`erp_account_combination` AS `erp_account_combination`, 
+  `BANK_CLEARING_ACCOUNT` AS `bk_clearing_account`, 
+  `KBM`.`MICR_CODE` AS `MICR_CODE`, 
+  `KBM`.`IBAN_CODE` AS `IBAN_CODE`, 
+  `KBM`.`IFSC_CODE` AS `IFSC_CODE`, 
+  `KBM`.`ACCOUNT_OPENING_DATE` AS `ACCOUNT_OPENING_DATE`, 
+  `KBM`.`ACCOUNT_TYPE` AS `ACCOUNT_TYPE`, 
+  `sftp_host`, 
+  `sftp_port`, 
+  `sftp_username`, 
+  `sftp_password`, 
+  `sftp_encryption`, 
+  `sftp_path` 
+FROM 
+  `KBR_BANK_MASTER` `KBM`, 
+  `KBR_USER_COMPANY` `KTC` 
+WHERE 
+  `KTC`.`COMPANY_ID` = `KBM`.`COMPANY_ID` 
+  AND `KTC`.`user_id` = ? 
+ORDER BY 
+  `bank_account_id` DESC
